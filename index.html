@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Carrossel: Corrida Escolar</title>
+    <style>
+        :root {
+            --primary: #ffd166;
+            --secondary: #06d6a0;
+            --danger: #ef476f;
+            --dark: #118ab2;
+            --bg: #073b4c;
+            --text: #ffffff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            padding: 10px;
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px 15px;
+            border-radius: 15px;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .score-box {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .score-box span {
+            color: var(--primary);
+            font-size: 20px;
+        }
+
+        #character-selector {
+            background: var(--dark);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 14px;
+            outline: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        #canvas-wrapper {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border: 4px solid var(--dark);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Controles Virtuais */
+        .controls {
+            width: 100%;
+            max-width: 260px;
+            aspect-ratio: 1;
+            margin-top: 5px;
+            position: relative;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            color: white;
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            transition: background 0.1s, transform 0.1s;
+        }
+
+        .btn:active {
+            background: var(--primary);
+            color: var(--bg);
+            transform: scale(0.92);
+        }
+
+        #btn-up { grid-column: 2; grid-row: 1; }
+        #btn-left { grid-column: 1; grid-row: 2; }
+        #btn-right { grid-column: 3; grid-row: 2; }
+        #btn-down { grid-column: 2; grid-row: 3; }
+
+        /* Telas de Overlay */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(7, 59, 76, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            padding: 20px;
+            text-align: center;
+            z-index: 10;
+            transition: opacity 0.3s ease;
+        }
+
+        .overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .overlay h2 {
+            font-size: 28px;
+            color: var(--primary);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .overlay p {
+            font-size: 16px;
+            max-width: 80%;
+            line-height: 1.4;
+        }
+
+        .start-btn {
+            background: var(--secondary);
+            color: var(--bg);
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(6, 214, 160, 0.4);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div class="header">
+            <div class="score-box">Pontos: <span id="score">0</span></div>
+            <select id="character-selector">
+                <option value="Cirilo">👦🏽 Cirilo</option>
+                <option value="Maria Joaquina">👧🏼 M. Joaquina</option>
+                <option value="Kokimoto">👦🏻 Kokimoto</option>
+                <option value="Valéria">👧🏻 Valéria</option>
+                <option value="Jaime">👦🏼 Jaime</option>
+            </select>
+        </div>
+
+        <div id="canvas-wrapper">
+            <canvas id="gameCanvas" width="400" height="400"></canvas>
+            
+            <!-- Tela Inicial -->
+            <div id="start-screen" class="overlay">
+                <h2>Carrossel: Jogo da Fila</h2>
+                <p>Escolha seu personagem, colete o material escolar espalhado e aumente o tamanho da fila da Escola Mundial!</p>
+                <button class="start-btn" onclick="startGame()">JOGAR</button>
+            </div>
+
+            <!-- Tela de Game Over -->
+            <div id="game-over-screen" class="overlay hidden">
+                <h2 style="color: var(--danger);">Ih, bateu!</h2>
+                <p>Você conseguiu juntar <span id="final-score" style="color: var(--primary); font-weight: bold;">0</span> amigos na fila!</p>
+                <button class="start-btn" style="background: var(--primary);" onclick="startGame()">TENTAR DE NOVO</button>
+            </div>
+        </div>
+
+        <!-- Controles para Celular -->
+        <div class="controls">
+            <div id="btn-up" class="btn">▲</div>
+            <div id="btn-left" class="btn">◀</div>
+            <div id="btn-right" class="btn">▶</div>
+            <div id="btn-down" class="btn">▼</div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const finalScoreElement = document.getElementById('final-score');
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const charSelector = document.getElementById('character-selector');
+
+        // Configurações do Grid do Jogo
+        const gridSize = 20;
+        const tileCount = canvas.width / gridSize;
+        
+        let snake = [];
+        let food = { x: 0, y: 0, icon: '🎒' };
+        let dx = gridSize;
+        let dy = 0;
+        let score = 0;
+        let gameInterval;
+        let gameRunning = false;
+
+        // Lista de objetos escolares aleatórios
+        const schoolItems = ['🎒', '✏️', '📐', '📚', '🎨', '✂️', '📝', '🧪'];
+
+        // Cores personalizadas para os personagens do Carrossel
+        const characterStyles = {
+            'Cirilo': { head: '#8B5A2B', body: '#4A90E2', text: '👦🏽' },
+            'Maria Joaquina': { head: '#FFD1DC', body: '#FF69B4', text: '👧🏼' },
+            'Kokimoto': { head: '#FFA500', body: '#E63946', text: '👦🏻' },
+            'Valéria': { head: '#FFE4E1', body: '#9B5DE5', text: '👧🏻' },
+            'Jaime': { head: '#F4A261', body: '#2A9D8F', text: '👦🏼' }
+        };
+
+        // Captura de cliques nos botões virtuais (Mobile)
+        document.getElementById('btn-up').addEventListener('touchstart', (e) => { e.preventDefault(); changeDirection(0, -gridSize); });
+        document.getElementById('btn-down').addEventListener('touchstart', (e) => { e.preventDefault(); changeDirection(0, gridSize); });
+        document.getElementById('btn-left').addEventListener('touchstart', (e) => { e.preventDefault(); changeDirection(-gridSize, 0); });
+        document.getElementById('btn-right').addEventListener('touchstart', (e) => { e.preventDefault(); changeDirection(gridSize, 0); });
+        
+        // Suporte para clique também em desktops de teste
+        document.getElementById('btn-up').addEventListener('mousedown', () => changeDirection(0, -gridSize));
+        document.getElementById('btn-down').addEventListener('mousedown', () => changeDirection(0, gridSize));
+        document.getElementById('btn-left').addEventListener('mousedown', () => changeDirection(-gridSize, 0));
+        document.getElementById('btn-right').addEventListener('mousedown', () => changeDirection(gridSize, 0));
+
+        // Controles via teclado para desenvolvimento/PC
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) return;
+            if (e.key === 'ArrowUp' || e.key === 'w') changeDirection(0, -gridSize);
+            if (e.key === 'ArrowDown' || e.key === 's') changeDirection(0, gridSize);
+            if (e.key === 'ArrowLeft' || e.key === 'a') changeDirection(-gridSize, 0);
+            if (e.key === 'ArrowRight' || e.key === 'd') changeDirection(gridSize, 0);
+        });
+
+        function changeDirection(newDx, newDy) {
+            // Evita que a cobra volte diretamente para trás
+            if (newDx === -dx || newDy === -dy) return;
+            dx = newDx;
+            dy = newDy;
+        }
+
+        function generateFood() {
+            food.x = Math.floor(Math.random() * tileCount) * gridSize;
+            food.y = Math.floor(Math.random() * tileCount) * gridSize;
+            food.icon = schoolItems[Math.floor(Math.random() * schoolItems.length)];
+
+            // Garante que o item não apareça em cima da cobra
+            for (let part of snake) {
+                if (part.x === food.x && part.y === food.y) {
+                    generateFood();
+                    break;
+                }
+            }
+        }
+
+        function startGame() {
+            snake = [
+                { x: gridSize * 5, y: gridSize * 5 },
+                { x: gridSize * 4, y: gridSize * 5 },
+                { x: gridSize * 3, y: gridSize * 5 }
+            ];
+            dx = gridSize;
+            dy = 0;
+            score = 0;
+            scoreElement.textContent = score;
+            
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            
+            generateFood();
+            
+            if (gameInterval) clearInterval(gameInterval);
+            gameInterval = setInterval(update, 140); // Velocidade ideal para mobile
+            gameRunning = true;
+        }
+
+        function update() {
+            // Avança a cabeça da cobra
+            const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+
+            // Verifica colisão com as bordas (Tela infinita / atravessar paredes)
+            if (head.x >= canvas.width) head.x = 0;
+            if (head.x < 0) head.x = canvas.width - gridSize;
+            if (head.y >= canvas.height) head.y = 0;
+            if (head.y < 0) head.y = canvas.height - gridSize;
+
+            // Verifica colisão consigo mesma
+            for (let i = 0; i < snake.length; i++) {
+                if (head.x === snake[i].x && head.y === snake[i].y) {
+                    gameOver();
+                    return;
+                }
+            }
+
+            // Adiciona a nova cabeça no início
+            snake.unshift(head);
+
+            // Verifica se comeu o material escolar
+            if (head.x === food.x && head.y === food.y) {
+                score += 10;
+                scoreElement.textContent = score;
+                generateFood();
+            } else {
+                // Remove o rabo se não comeu nada
+                snake.pop();
+            }
+
+            draw();
+        }
+
+        function draw() {
+            // Limpa o canvas com um fundo sutil quadriculado de sala de aula
+            ctx.fillStyle = '#0f4c5c';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Desenha uma malha de fundo bem levinha
+            ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+            for (let i = 0; i < canvas.width; i += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, canvas.height);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                ctx.lineTo(canvas.width, i);
+                ctx.stroke();
+            }
+
+            // Pega o estilo do personagem selecionado
+            const charSelected = charSelector.value;
+            const style = characterStyles[charSelected] || characterStyles['Cirilo'];
+
+            // Desenha a cobra (A fila de alunos)
+            snake.forEach((part, index) => {
+                if (index === 0) {
+                    // Cabeça (Desenha o Emoji do personagem)
+                    ctx.font = `${gridSize - 2}px sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(style.text, part.x + gridSize/2, part.y + gridSize/2);
+                } else {
+                    // Corpo (Uniforme escolar)
+                    ctx.fillStyle = style.body;
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 1;
+                    
+                    // Desenha blocos arredondados para um visual moderno
+                    ctx.beginPath();
+                    ctx.arc(part.x + gridSize/2, part.y + gridSize/2, (gridSize/2) - 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+            });
+
+            // Desenha o item escolar (Comida)
+            ctx.font = `${gridSize - 2}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(food.icon, food.x + gridSize/2, food.y + gridSize/2);
+        }
+
+        function gameOver() {
+            clearInterval(gameInterval);
+            gameRunning = false;
+            finalScoreElement.textContent = score;
+            gameOverScreen.classList.remove('hidden');
+        }
+
+        // Desenhar o estado inicial antes do clique do jogador
+        draw();
+    </script>
+</body>
+</html>
